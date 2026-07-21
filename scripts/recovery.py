@@ -135,6 +135,39 @@ def _try_python_module_path(parsed: dict, env: dict | None) -> RecoveryAction | 
     return None
 
 
+def _try_pip_module(parsed: dict, env: dict | None) -> RecoveryAction | None:
+    """If a bare `pip`/`pip3` invocation was not found, rewrite to `python -m pip`."""
+    original = parsed.get("original", "").strip()
+    if not original:
+        return None
+    first = original.split()[0].lower()
+    if first in ("pip", "pip3"):
+        rewritten = "python -m pip" + original[len(original.split()[0]):]
+        return RecoveryAction(
+            name="pip_module_fallback",
+            command=rewritten,
+            shell=parsed.get("shell_used", "pwsh"),
+            timeout=parsed.get("timeout", 120),
+        )
+    return None
+
+
+def _try_execution_policy_bypass(parsed: dict, env: dict | None) -> RecoveryAction | None:
+    """PowerShell blocked a .ps1 script via execution policy -> retry with a
+    process-scoped bypass prefix (does NOT change machine/user policy)."""
+    original = parsed.get("original", "").strip()
+    shell_used = parsed.get("shell_used", "pwsh")
+    if not original or shell_used not in ("pwsh", "powershell"):
+        return None
+    prefix = "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force; "
+    return RecoveryAction(
+        name="execution_policy_bypass",
+        command=prefix + original,
+        shell=shell_used,
+        timeout=parsed.get("timeout", 60),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Register all recovery rules
 # ---------------------------------------------------------------------------
@@ -204,6 +237,95 @@ _register(
     "Administrator access required. Re-run the agent from an elevated terminal or use `Start-Process -Verb RunAs`.",
 )
 
+_register(
+    "execution_policy_blocked",
+    r"cannot be loaded because running scripts is disabled|execution of scripts is disabled|UnauthorizedAccess.*\.ps1|about_Execution_Policies",
+    "PowerShell blocked a script via execution policy. Retry with a process-scoped bypass "
+    "(`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force`) which does not change machine/user policy.",
+    auto_recovery=_try_execution_policy_bypass,
+)
+
+_register(
+    "pip_not_found",
+    r"(pip|pip3).*(无法将|not recognized|not found|No module named pip)",
+    "pip not on PATH. Use `python -m pip` instead of the bare `pip` executable.",
+    auto_recovery=_try_pip_module,
+)
+
+_register(
+    "node_not_found",
+    r"(node|npm|npx).*(无法将|not recognized|not found)",
+    "Node.js/npm not on PATH. Verify with `where.exe node`; install Node or add it to PATH.",
+)
+
+_register(
+    "module_not_found",
+    r"ModuleNotFoundError|No module named|Cannot find module|\bMODULE_NOT_FOUND\b",
+    "A language module/package is missing. Install it (`python -m pip install <pkg>` or `npm install <pkg>`) then retry.",
+)
+
+_register(
+    "disk_full",
+    r"磁盘空间不足|There is not enough space on the disk|No space left on device|\bENOSPC\b",
+    "Disk is full. Free space or write to another drive; then retry.",
+)
+
+_register(
+    "network_unreachable",
+    r"could not resolve host|Could not resolve|Connection timed out|\bETIMEDOUT\b|\bENOTFOUND\b|network is unreachable|Failed to connect|Temporary failure in name resolution",
+    "Network/DNS failure. Check connectivity or proxy settings (HTTP(S)_PROXY); retry after the network recovers.",
+)
+
+_register(
+    "tls_cert_error",
+    r"certificate.*(verify|validation) failed|SSL certificate problem|CERT_HAS_EXPIRED|unable to get local issuer certificate|SEC_E_UNTRUSTED_ROOT",
+    "TLS certificate validation failed. Check system clock and CA store; do NOT blindly disable verification.",
+)
+
+_register(
+    "auth_failed",
+    r"Authentication failed|401 Unauthorized|403 Forbidden|Permission to .* denied|invalid credentials|fatal: could not read Username",
+    "Authentication failed. Refresh credentials/token (e.g. `gh auth login`, Git credential manager) then retry.",
+)
+
+_register(
+    "path_too_long",
+    r"filename or extension is too long|path.*too long|MAX_PATH",
+    "Path exceeds MAX_PATH (260). Enable long paths, use the `\\\\?\\` prefix, or shorten the path.",
+)
+
+_register(
+    "already_exists",
+    r"已经存在|already exists|Cannot create a file when that file already exists|\bEEXIST\b",
+    "Target already exists. Use a force/overwrite flag, or remove the existing item first (`wrap rm`).",
+)
+
+_register(
+    "directory_not_empty",
+    r"目录不为空|directory is not empty|\bENOTEMPTY\b|The directory is not empty",
+    "Directory is not empty. Use a recursive remove (`wrap rm` handles this) instead of a plain rmdir.",
+)
+
+_register(
+    "argument_error",
+    r"A parameter cannot be found that matches parameter name|missing required argument|unrecognized arguments|invalid option",
+    "Bad/missing argument. The translated command may use a flag the target shell does not accept; check the command syntax.",
+)
+
+
+# ---------------------------------------------------------------------------
+# Severity classification
+# ---------------------------------------------------------------------------
+
+_HIGH_SEVERITY = frozenset({
+    "command_not_found",
+    "admin_required",
+    "disk_full",
+    "auth_failed",
+    "execution_policy_blocked",
+    "tls_cert_error",
+})
+
 
 # ---------------------------------------------------------------------------
 # Recovery Engine
@@ -259,7 +381,7 @@ class RecoveryEngine:
             if not pattern.search(stderr):
                 continue
 
-            severity = "high" if category in ("command_not_found", "admin_required") else "medium"
+            severity = "high" if category in _HIGH_SEVERITY else "medium"
             suggestions.append({
                 "category": category,
                 "severity": severity,
@@ -267,7 +389,7 @@ class RecoveryEngine:
                 "fix_hint": hint,
             })
 
-            if auto_builder:
+            if auto_builder and auto_action is None:
                 auto_action_candidate = auto_builder(result, self._env)
                 if auto_action_candidate:
                     auto_action = auto_action_candidate

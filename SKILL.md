@@ -105,12 +105,16 @@ python scripts/cli.py capabilities
 
 ## Error recovery & retry loop (P2)
 
-`exec` runs a two-stage pipeline: **Stage 1** naive OS/timeout retries, **Stage 2** a deterministic Error Recovery Engine (no LLM). On failure the engine classifies the error, emits `fix_hint`s, and — where safe — retries once with an auto-recovery action:
+`exec` runs a two-stage pipeline: **Stage 1** naive OS/timeout retries, **Stage 2** a deterministic Error Recovery Engine (no LLM). On failure the engine classifies the error into one of **22 categories**, emits `fix_hint`s, and — where safe — retries once with an auto-recovery action. When several rules match, the first rule that yields an auto-recovery action wins (deterministic).
 
-- `command_not_found` → `where.exe` re-resolves the tool to a full path and retries. If it cannot resolve, **no action is taken** (the failure surfaces honestly — never guesses).
+Auto-recovery categories (retry once):
+- `command_not_found` → `where.exe` re-resolves the tool to a full path. If it cannot resolve, **no action is taken** (the failure surfaces honestly — never guesses).
+- `pip_not_found` → rewrites bare `pip`/`pip3` to `python -m pip`.
+- `execution_policy_blocked` → retries with a **process-scoped** `Set-ExecutionPolicy Bypass` (never changes machine/user policy).
 - `encoding_mojibake` → re-runs via `cmd`+GBK codepage.
 - `python_not_found` → retries with `python3`.
-- Other categories (`permission_denied`, `path_not_found`, `file_in_use`, `admin_required`, `timeout_or_hung`, `git_not_available`, `syntax_error`) emit suggestions only.
+
+Suggestion-only categories (no auto-execute): `permission_denied`, `path_not_found`, `syntax_error`, `file_in_use`, `git_not_available`, `node_not_found`, `module_not_found`, `disk_full`, `network_unreachable`, `tls_cert_error`, `auth_failed`, `path_too_long`, `already_exists`, `directory_not_empty`, `argument_error`, `admin_required`, `timeout_or_hung`.
 
 Recovery is on by default; disable with `exec --no-recover`. Analyze a result without executing via `recover`:
 

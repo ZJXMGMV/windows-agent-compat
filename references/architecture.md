@@ -218,20 +218,25 @@ ExecRunner.run(cmd, recover=True)
    ▼
 [Stage 2] if not ok and recover: _try_recovery(result)
    │   RecoveryEngine.analyze(result)
-   │     ├─ 遍历 10 条 recovery rules（正则匹配 stderr）
+   │     ├─ 遍历 22 条 recovery rules（正则匹配 stderr）
    │     │     → 生成 suggestions[{category,severity,fix_hint}]
    │     └─ auto_recovery builder（可选）→ 自恢复动作 or None
+   │   多条命中时：首个产出 auto_recovery 的规则胜出（确定性）
    │   有 auto_recovery → _execute() 重跑一次 → 合并 recovered_via
    │   无 → 原样返回，附 result["recovery"]=analysis
    ▼
 返回 result（失败时带 recovery 元数据）
 ```
 
-**设计铁律：恢复动作必须确定性、窄口径，绝不 LLM 猜测。**
+**设计铁律：恢复动作必须确定性、窄口径，绝不 LLM 猜测。** 当前 **22 类**，5 类带自恢复：
 - `command_not_found` → `_find_exe_and_retry`：仅当 `fallback=True` 时，用 `where.exe` 找真实路径重写命令；找不到就返回 None（如实失败）。
+- `pip_not_found` → `_try_pip_module`：裸 `pip`/`pip3` → `python -m pip`。
+- `execution_policy_blocked` → `_try_execution_policy_bypass`：加**进程级** `Set-ExecutionPolicy Bypass` 前缀（不改机器/用户策略）。
 - `encoding_mojibake` → `_try_gbk_redecode`：检测 Latin-1 区 mojibake 字符 → 切 `cmd`+GBK 重跑。
 - `python_not_found` → `_try_python_module_path`：`python` → `python3`。
-- 其余 6 类只给 `fix_hint` 建议，不自动执行。
+- 其余 17 类（permission_denied / path_not_found / syntax_error / file_in_use / git_not_available / node_not_found / module_not_found / disk_full / network_unreachable / tls_cert_error / auth_failed / path_too_long / already_exists / directory_not_empty / argument_error / admin_required / timeout_or_hung）只给 `fix_hint` 建议。
+
+**防子串误匹配**：全大写错误码（`ENOTFOUND`/`ENOSPC`/`EEXIST`/`ENOTEMPTY`/`MODULE_NOT_FOUND`）用 `\b` 词边界锁定，避免在 `ModuleNotFoundError` 等单词内部误命中（曾让 `ModuleNotFoundError` 误触 `network_unreachable`）。
 
 `command_not_found` 正则同时匹配 cmd.exe（"not recognized as an internal or external command"）与 PowerShell（"is not recognized as a name of a cmdlet"）两种措辞。
 

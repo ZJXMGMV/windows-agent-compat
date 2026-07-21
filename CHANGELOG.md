@@ -7,6 +7,27 @@ All notable changes to this skill are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Recovery ruleset expanded 10 → 22 categories.** New: `execution_policy_blocked`
+  (auto: process-scoped `Set-ExecutionPolicy Bypass`), `pip_not_found`
+  (auto: `python -m pip`), `node_not_found`, `module_not_found`, `disk_full`,
+  `network_unreachable`, `tls_cert_error`, `auth_failed`, `path_too_long`,
+  `already_exists`, `directory_not_empty`, `argument_error`.
+- Two new deterministic auto-recovery builders: `_try_pip_module`
+  (bare `pip`/`pip3` → `python -m pip`) and `_try_execution_policy_bypass`
+  (process-scoped bypass only — never touches machine/user policy).
+- `_HIGH_SEVERITY` set drives severity classification
+  (command_not_found / admin_required / disk_full / auth_failed /
+  execution_policy_blocked / tls_cert_error → high; rest → medium).
+
+### Fixed
+- **Recovery false positive**: all-caps error codes (`ENOTFOUND`, `ENOSPC`,
+  `EEXIST`, `ENOTEMPTY`, `MODULE_NOT_FOUND`) were substring-matching inside
+  unrelated words — e.g. `ModuleNotFoundError` matched `ENOTFOUND` (as the
+  case-insensitive substring `eNotFound`) and wrongly tripped
+  `network_unreachable`. Now anchored with `\b` word boundaries.
+- **Auto-recovery determinism**: when multiple rules match, the *first* rule
+  that produces an auto-recovery action now wins (no silent later override).
+
 - **Error Recovery Engine** (`scripts/recovery.py`) — deterministic,
   no-LLM recovery layer. Classifies a failed `exec` result into one of 10
   categories (`command_not_found`, `permission_denied`, `path_not_found`,
