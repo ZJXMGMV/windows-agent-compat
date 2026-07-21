@@ -146,6 +146,22 @@ python scripts/cli.py discover          # -> all known tools
 
 See [references/error-patterns.md](references/error-patterns.md) for common error messages and how this skill handles them.
 
+## Tests
+
+Run the suite from the skill root:
+
+```
+python tests/run_all.py
+```
+
+It runs `tests/test_recovery_rules.py` — a data-driven harness over
+`tests/recovery_fixtures.json` that, for every recovery rule, asserts (1)
+positive samples classify to the right category, (2) they do **not** trip any
+undeclared category (cross-rule interference net), (3) negative samples stay
+unmatched, and (4) auto-recovery actions resolve as expected. It also fails if
+any registered rule lacks fixtures — so a new rule cannot land without its own
+positive/negative samples. **Add a fixture entry whenever you add a recovery rule.**
+
 ## Resources
 
 - [references/architecture.md](references/architecture.md) — architecture, call-flow diagrams, and translation engine

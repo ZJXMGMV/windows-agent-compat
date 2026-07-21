@@ -1,0 +1,203 @@
+{
+  "_doc": "Recovery rule self-test fixtures. Each category lists real-world stderr samples that MUST classify to it (positive), categories allowed to co-match legitimately (also_ok), and stderr that MUST NOT classify to it (negative). The harness asserts positives hit the target AND do not trip any undeclared category (anti-interference net). auto_recovery declares the expected auto action name for a given positive sample (by index), or null.",
+
+  "cases": {
+    "command_not_found": {
+      "positive": [
+        "foo : 无法将\u201cfoo\u201d项识别为 cmdlet、函数、脚本文件或可运行程序的名称。",
+        "'foo' 不是内部或外部命令，也不是可运行的程序",
+        "foo: command not found",
+        "foo : The term 'foo' is not recognized as a name of a cmdlet, function, script file, or operable program."
+      ],
+      "also_ok": [],
+      "negative": [
+        "ModuleNotFoundError: No module named 'requests'",
+        "There is not enough space on the disk."
+      ]
+    },
+    "permission_denied": {
+      "positive": [
+        "访问被拒绝。",
+        "rm: cannot remove 'x': Permission denied",
+        "Access is denied."
+      ],
+      "also_ok": [],
+      "negative": ["The system cannot find the path specified."]
+    },
+    "path_not_found": {
+      "positive": [
+        "系统找不到指定的路径。",
+        "系统找不到指定的文件。",
+        "The system cannot find the path specified.",
+        "The system cannot find the file specified."
+      ],
+      "also_ok": [],
+      "negative": ["Access is denied."]
+    },
+    "syntax_error": {
+      "positive": [
+        "命令语法不正确。",
+        "syntax error near unexpected token"
+      ],
+      "also_ok": [],
+      "negative": ["The term 'x' is not recognized as a name of a cmdlet"]
+    },
+    "file_in_use": {
+      "positive": [
+        "文件正在被另一进程使用，进程无法访问。",
+        "The process cannot access the file because it is being used by another process."
+      ],
+      "also_ok": [],
+      "negative": ["Access is denied."]
+    },
+    "python_not_found": {
+      "positive": [
+        "python : 无法将\u201cpython\u201d项识别为 cmdlet",
+        "python: command not found"
+      ],
+      "also_ok": ["command_not_found"],
+      "negative": ["ModuleNotFoundError: No module named 'os'"]
+    },
+    "git_not_available": {
+      "positive": [
+        "git : 无法将\u201cgit\u201d项识别为 cmdlet",
+        "git: command not found"
+      ],
+      "also_ok": ["command_not_found"],
+      "negative": ["fatal: Authentication failed for 'https://github.com/x'"]
+    },
+    "admin_required": {
+      "positive": [
+        "需要管理员权限才能执行此操作。",
+        "The requested operation requires elevation. Run as administrator."
+      ],
+      "also_ok": [],
+      "negative": ["Access is denied."]
+    },
+    "execution_policy_blocked": {
+      "positive": [
+        "无法加载文件 build.ps1，因为在此系统上禁止运行脚本。",
+        "File C:\\x\\build.ps1 cannot be loaded because running scripts is disabled on this system.",
+        "UnauthorizedAccess: build.ps1 cannot be loaded. See about_Execution_Policies."
+      ],
+      "also_ok": [],
+      "negative": ["Access is denied."]
+    },
+    "pip_not_found": {
+      "positive": [
+        "pip : 无法将\u201cpip\u201d项识别为 cmdlet",
+        "pip: command not found",
+        "No module named pip"
+      ],
+      "also_ok": ["command_not_found", "python_not_found", "module_not_found"],
+      "negative": ["npm : 无法将\u201cnpm\u201d项识别为 cmdlet"]
+    },
+    "node_not_found": {
+      "positive": [
+        "node : 无法将\u201cnode\u201d项识别为 cmdlet",
+        "npm: command not found",
+        "npx : 无法将\u201cnpx\u201d项识别为 cmdlet"
+      ],
+      "also_ok": ["command_not_found"],
+      "negative": ["ModuleNotFoundError: No module named 'requests'"]
+    },
+    "module_not_found": {
+      "positive": [
+        "ModuleNotFoundError: No module named 'requests'",
+        "Error: Cannot find module 'express'",
+        "code: 'MODULE_NOT_FOUND'"
+      ],
+      "also_ok": [],
+      "negative": [
+        "could not resolve host: github.com",
+        "pip : 无法将\u201cpip\u201d项识别为 cmdlet"
+      ]
+    },
+    "disk_full": {
+      "positive": [
+        "磁盘空间不足。",
+        "There is not enough space on the disk.",
+        "write error: No space left on device",
+        "Error: ENOSPC: no space left on device"
+      ],
+      "also_ok": [],
+      "negative": ["The directory is not empty."]
+    },
+    "network_unreachable": {
+      "positive": [
+        "fatal: unable to access 'https://x/': Could not resolve host: github.com",
+        "curl: (28) Connection timed out",
+        "Error: connect ETIMEDOUT 1.2.3.4:443",
+        "Error: getaddrinfo ENOTFOUND registry.npmjs.org"
+      ],
+      "also_ok": [],
+      "negative": [
+        "ModuleNotFoundError: No module named 'requests'",
+        "code: 'MODULE_NOT_FOUND'"
+      ]
+    },
+    "tls_cert_error": {
+      "positive": [
+        "curl: (60) SSL certificate problem: unable to get local issuer certificate",
+        "Error: certificate has expired: CERT_HAS_EXPIRED",
+        "server certificate verification failed"
+      ],
+      "also_ok": [],
+      "negative": ["Could not resolve host: github.com"]
+    },
+    "auth_failed": {
+      "positive": [
+        "remote: Support for password authentication was removed. fatal: Authentication failed",
+        "HTTP 401 Unauthorized",
+        "remote: Permission to org/repo denied to user."
+      ],
+      "also_ok": [],
+      "negative": ["访问被拒绝。"]
+    },
+    "path_too_long": {
+      "positive": [
+        "The filename or extension is too long.",
+        "Error: ENAMETOOLONG path too long"
+      ],
+      "also_ok": [],
+      "negative": ["The system cannot find the path specified."]
+    },
+    "already_exists": {
+      "positive": [
+        "目标目录已经存在。",
+        "mkdir: cannot create directory 'x': File exists",
+        "A subdirectory or file build already exists.",
+        "Error: EEXIST: file already exists"
+      ],
+      "also_ok": [],
+      "negative": ["The directory is not empty."]
+    },
+    "directory_not_empty": {
+      "positive": [
+        "目录不为空。",
+        "rmdir: failed to remove 'x': Directory not empty",
+        "Error: ENOTEMPTY: directory not empty",
+        "The directory is not empty."
+      ],
+      "also_ok": [],
+      "negative": ["File build already exists."]
+    },
+    "argument_error": {
+      "positive": [
+        "A parameter cannot be found that matches parameter name 'Bogus'.",
+        "error: missing required argument",
+        "error: unrecognized arguments: --bogus"
+      ],
+      "also_ok": [],
+      "negative": ["The term 'x' is not recognized as a name of a cmdlet"]
+    }
+  },
+
+  "auto_recovery": [
+    {"category": "command_not_found", "stderr": "git : 无法将\u201cgit\u201d项识别为 cmdlet", "original": "git status", "shell": "pwsh", "fallback": true, "expect_action": "resolve_git"},
+    {"category": "command_not_found", "stderr": "nope123xyz : 无法将\u201cnope123xyz\u201d项识别为 cmdlet", "original": "nope123xyz --version", "shell": "pwsh", "fallback": true, "expect_action": null},
+    {"category": "pip_not_found", "stderr": "pip : 无法将\u201cpip\u201d项识别为 cmdlet", "original": "pip install requests", "shell": "pwsh", "fallback": false, "expect_action": "pip_module_fallback"},
+    {"category": "execution_policy_blocked", "stderr": "File build.ps1 cannot be loaded because running scripts is disabled on this system.", "original": ".\\build.ps1", "shell": "pwsh", "fallback": false, "expect_action": "execution_policy_bypass"},
+    {"category": "python_not_found", "stderr": "python : 无法将\u201cpython\u201d项识别为 cmdlet", "original": "python app.py", "shell": "pwsh", "fallback": false, "expect_action": "python_fallback"}
+  ]
+}

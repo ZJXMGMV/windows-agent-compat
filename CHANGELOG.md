@@ -7,6 +7,22 @@ All notable changes to this skill are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Recovery rule self-test harness** (`tests/`): `run_all.py` entry point +
+  `test_recovery_rules.py` data-driven over `recovery_fixtures.json`. For every
+  rule it asserts positive-match, **anti-interference** (positives must not trip
+  undeclared categories), negative-non-match, and expected auto-recovery action.
+  Coverage gate fails if any registered rule lacks fixtures. 92 checks green.
+
+### Fixed (surfaced by the new harness)
+- `path_not_found` missed the real Chinese wording `系统找不到指定的路径/文件`
+  ("找不到" and "路径" are separated) and bash `No such file or directory`.
+- `execution_policy_blocked` had no Chinese branch (`因为在此系统上禁止运行脚本`).
+- `pip_not_found` failed to match bare `No module named pip` (pip token wasn't first).
+- `tls_cert_error` missed `certificate verification failed` (only had verify/validation).
+- `already_exists` missed bash `File exists`.
+- `directory_not_empty` missed `Directory not empty` (no "is").
+
+### Added
 - **Recovery ruleset expanded 10 → 22 categories.** New: `execution_policy_blocked`
   (auto: process-scoped `Set-ExecutionPolicy Bypass`), `pip_not_found`
   (auto: `python -m pip`), `node_not_found`, `module_not_found`, `disk_full`,

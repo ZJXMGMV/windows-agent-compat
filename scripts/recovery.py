@@ -188,7 +188,7 @@ _register(
 
 _register(
     "path_not_found",
-    r"找不到路径|找不到文件|无法找到路径|The system cannot find the (path|file)",
+    r"系统找不到指定的(路径|文件)|找不到路径|找不到文件|无法找到路径|The system cannot find the (path|file)|No such file or directory",
     "Path does not exist. Verify with `Test-Path` or `dir` before retrying.",
 )
 
@@ -239,7 +239,7 @@ _register(
 
 _register(
     "execution_policy_blocked",
-    r"cannot be loaded because running scripts is disabled|execution of scripts is disabled|UnauthorizedAccess.*\.ps1|about_Execution_Policies",
+    r"因为在此系统上禁止运行脚本|禁止运行脚本|cannot be loaded because running scripts is disabled|execution of scripts is disabled|UnauthorizedAccess.*\.ps1|about_Execution_Policies",
     "PowerShell blocked a script via execution policy. Retry with a process-scoped bypass "
     "(`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force`) which does not change machine/user policy.",
     auto_recovery=_try_execution_policy_bypass,
@@ -247,7 +247,7 @@ _register(
 
 _register(
     "pip_not_found",
-    r"(pip|pip3).*(无法将|not recognized|not found|No module named pip)",
+    r"No module named pip|(pip|pip3).*(无法将|not recognized|not found)",
     "pip not on PATH. Use `python -m pip` instead of the bare `pip` executable.",
     auto_recovery=_try_pip_module,
 )
@@ -278,7 +278,7 @@ _register(
 
 _register(
     "tls_cert_error",
-    r"certificate.*(verify|validation) failed|SSL certificate problem|CERT_HAS_EXPIRED|unable to get local issuer certificate|SEC_E_UNTRUSTED_ROOT",
+    r"certificate.*(verify|verification|validation) failed|SSL certificate problem|CERT_HAS_EXPIRED|unable to get local issuer certificate|SEC_E_UNTRUSTED_ROOT",
     "TLS certificate validation failed. Check system clock and CA store; do NOT blindly disable verification.",
 )
 
@@ -296,13 +296,13 @@ _register(
 
 _register(
     "already_exists",
-    r"已经存在|already exists|Cannot create a file when that file already exists|\bEEXIST\b",
+    r"已经存在|already exists|File exists|Cannot create a file when that file already exists|\bEEXIST\b",
     "Target already exists. Use a force/overwrite flag, or remove the existing item first (`wrap rm`).",
 )
 
 _register(
     "directory_not_empty",
-    r"目录不为空|directory is not empty|\bENOTEMPTY\b|The directory is not empty",
+    r"目录不为空|directory (is )?not empty|\bENOTEMPTY\b",
     "Directory is not empty. Use a recursive remove (`wrap rm` handles this) instead of a plain rmdir.",
 )
 
