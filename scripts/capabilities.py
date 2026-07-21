@@ -67,7 +67,7 @@ def build_manifest(env: dict[str, Any] | None = None) -> dict[str, Any]:
 
     return {
         "version": 1,
-        "runtime": "windows-agent-compat",
+        "runtime": "windows-runtime",
         "native": native,
         "toolchain": toolchain,
         "platform": platform_feats,

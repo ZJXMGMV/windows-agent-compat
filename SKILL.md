@@ -1,5 +1,5 @@
 ---
-name: windows-agent-compat
+name: windows-runtime
 description: Windows command-line compatibility layer for AI agents. Use when an agent needs to execute shell commands on Windows outside WSL, especially when the agent generates Linux/Bash-style commands (rm, cat, grep, export, chmod, etc.) that fail on Windows. Provides command translation, unified execution, safe file wrappers, and environment detection. Works with OpenClaw, Codex CLI, OpenCode, and Hermes via the Agent Skills standard.
 ---
 

@@ -1,6 +1,6 @@
 # Agent Workflow Examples
 
-This file shows how an agent should use the `windows-agent-compat` skill on Windows. It is reference material — read it when you need concrete command patterns, not on every invocation.
+This file shows how an agent should use the `windows-runtime` skill on Windows. It is reference material — read it when you need concrete command patterns, not on every invocation.
 
 ## Scenario 1: Session start — environment awareness
 

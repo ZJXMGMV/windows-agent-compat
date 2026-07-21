@@ -1,9 +1,8 @@
-# windows-agent-compat
+# windows-runtime
 
 A Windows command compatibility layer for AI agents. It lets an agent that was
 trained on Bash/Linux idioms operate correctly on Windows by **translating
-Bash-style commands to the best available Windows shell** (PowerShell 7 â†’
-Windows PowerShell 5 â†’ cmd â†’ Git Bash) and by providing **safe, cross-shell
+Bash-style commands to the best available Windows shell** (PowerShell 7 â†?Windows PowerShell 5 â†?cmd â†?Git Bash) and by providing **safe, cross-shell
 file-operation wrappers**.
 
 Targets: **OpenClaw**, **Codex CLI**, **OpenCode**, **Hermes**, and any other
@@ -20,7 +19,7 @@ hits a wall of silent failures:
 - `rm`/`mkdir -p`/`cat`/`ls` don't exist in `cmd.exe`
 - single quotes are invalid in `cmd.exe`
 - PowerShell uses `Remove-Item`/`New-Item`/`Get-Content`/`Get-ChildItem`
-- Chinese Windows outputs GBK, not UTF-8 â†’ mojibake
+- Chinese Windows outputs GBK, not UTF-8 â†?mojibake
 - `Get-ChildItem` / `Select-String` emit ANSI color codes that pollute
   machine-parsed output
 - multi-line file content can't be passed safely through CLI arguments
@@ -33,10 +32,10 @@ This skill handles all of the above so the agent doesn't have to.
 ## Install
 
 ```powershell
-git clone https://github.com/ZJXMGMV/windows-agent-compat.git
+git clone https://github.com/ZJXMGMV/windows-runtime.git
 # Drop the skill folder into your agent's skills directory, e.g.:
-#   OpenClaw:  ~/.qclaw/skills/windows-agent-compat/
-#   Codex:     .codex/skills/windows-agent-compat/  (see your framework docs)
+#   OpenClaw:  ~/.qclaw/skills/windows-runtime/
+#   Codex:     .codex/skills/windows-runtime/  (see your framework docs)
 ```
 
 The skill is pure Python 3 (standard library only). No third-party deps.
@@ -46,7 +45,7 @@ The skill is pure Python 3 (standard library only). No third-party deps.
 ## Quick start
 
 ```powershell
-$CLI = "C:\Users\Administrator\.qclaw\skills\windows-agent-compat\scripts\cli.py"
+$CLI = "C:\Users\Administrator\.qclaw\skills\windows-runtime\scripts\cli.py"
 
 python $CLI detect --json          # what shells/tools/encoding are available?
 python $CLI translate "rm -rf x"   # Bash -> PowerShell (auto shell)
@@ -106,19 +105,19 @@ the per-shell mapping.
 | `pwsh` (PowerShell 7+) | 1 | Preferred. Cleanest UTF-8 + JSON output. |
 | `powershell` (5.1) | 2 | Always present on Windows; fallback when pwsh absent. |
 | `cmd` | 3 | No native `tail`/`grep`/`chmod`; delegates or best-effort. |
-| `bash` | 4 | May be a WSL stub with no distro â†’ fails with a clear message. |
+| `bash` | 4 | May be a WSL stub with no distro â†?fails with a clear message. |
 
 ---
 
 ## Design notes
 
 - **Encoding:** PowerShell output is forced to UTF-8; stdout/stderr are decoded
-  `utf-8 â†’ gbk â†’ cp1252 â†’ utf-16` (UTF-16 is last-resort only, because it can
+  `utf-8 â†?gbk â†?cp1252 â†?utf-16` (UTF-16 is last-resort only, because it can
   silently "decode" GBK bytes into mojibake).
 - **ANSI stripping:** `exec` sets `$PSStyle.OutputRendering = 'PlainText'` so
   `Get-ChildItem` / `Select-String` never pollute parsed output with color codes.
 - **Multi-line content:** pass file content with `wrap write <path> --from-file
-  <src>` â€” never through a CLI argument (shell quoting mangles newlines).
+  <src>` â€?never through a CLI argument (shell quoting mangles newlines).
 - **`grep` safety:** globs are expanded with `root_dir=os.getcwd()` to avoid
   `scandir('.')` permission errors on Windows.
 

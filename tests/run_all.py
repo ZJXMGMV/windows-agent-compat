@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test entry point for windows-agent-compat.
+"""Test entry point for windows-runtime.
 
 Runs every test module in tests/ and aggregates results. Currently:
   - test_recovery_rules.py : data-driven recovery-rule regression + anti-interference net
