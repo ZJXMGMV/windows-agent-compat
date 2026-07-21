@@ -1,0 +1,191 @@
+{
+  "version": "1.0.0",
+  "shells": {
+    "pwsh": {
+      "command": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-Command"
+      ],
+      "detect": [
+        "pwsh.exe",
+        "pwsh"
+      ],
+      "priority": 1
+    },
+    "powershell": {
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-Command"
+      ],
+      "detect": [
+        "powershell.exe",
+        "powershell"
+      ],
+      "priority": 2
+    },
+    "cmd": {
+      "command": "cmd.exe",
+      "args": [
+        "/C"
+      ],
+      "detect": [
+        "cmd.exe",
+        "cmd"
+      ],
+      "priority": 3
+    },
+    "bash": {
+      "command": "bash.exe",
+      "args": [
+        "-c"
+      ],
+      "detect": [
+        "bash.exe",
+        "bash"
+      ],
+      "priority": 4
+    }
+  },
+  "commands": {
+    "rm -rf": {
+      "pattern": "^\\s*rm\\s+-rf\\s+(?P<path>\\S+)$",
+      "pwsh": "Remove-Item -Path '{{path}}' -Recurse -Force -ErrorAction SilentlyContinue | Out-Null",
+      "cmd": "rmdir /S /Q \"{{path}}\" 2>nul || del /F /Q \"{{path}}\" 2>nul",
+      "bash": "rm -rf '{{path}}'"
+    },
+    "rm -f": {
+      "pattern": "^\\s*rm\\s+-f\\s+(?P<path>\\S+)$",
+      "pwsh": "Remove-Item -Path '{{path}}' -Force -ErrorAction SilentlyContinue",
+      "cmd": "del /F /Q \"{{path}}\" 2>nul",
+      "bash": "rm -f '{{path}}'"
+    },
+    "mkdir -p": {
+      "pattern": "^\\s*mkdir\\s+-p\\s+(?P<path>.+)$",
+      "pwsh": "if (-not (Test-Path '{{path}}')) { New-Item -ItemType Directory -Path '{{path}}' -Force | Out-Null }",
+      "cmd": "if not exist \"{{path}}\" mkdir \"{{path}}\" >nul 2>&1",
+      "bash": "mkdir -p '{{path}}'"
+    },
+    "cp -r": {
+      "pattern": "^\\s*cp\\s+-r\\s+(?P<src>\\S+)\\s+(?P<dst>\\S+)$",
+      "pwsh": "Copy-Item -Path '{{src}}' -Destination '{{dst}}' -Recurse -Force",
+      "cmd": "xcopy \"{{src}}\" \"{{dst}}\" /E /I /Y",
+      "bash": "cp -r '{{src}}' '{{dst}}'"
+    },
+    "mv": {
+      "pattern": "^\\s*mv\\s+(?P<src>\\S+)\\s+(?P<dst>\\S+)$",
+      "pwsh": "Move-Item -Path '{{src}}' -Destination '{{dst}}' -Force",
+      "cmd": "move /Y \"{{src}}\" \"{{dst}}\"",
+      "bash": "mv '{{src}}' '{{dst}}'"
+    },
+    "touch": {
+      "pattern": "^\\s*touch\\s+(?P<path>\\S+)$",
+      "pwsh": "if (Test-Path '{{path}}') { (Get-Item '{{path}}').LastWriteTime = Get-Date } else { New-Item -ItemType File -Path '{{path}}' -Force | Out-Null }",
+      "cmd": "copy /Y nul \"{{path}}\" >nul 2>&1",
+      "bash": "touch '{{path}}'"
+    },
+    "cat": {
+      "pattern": "^\\s*cat\\s+(?P<file>[^|]+?)$",
+      "pwsh": "Get-Content -Path '{{file}}' -Raw",
+      "cmd": "type \"{{file}}\"",
+      "bash": "cat '{{file}}'"
+    },
+    "cat | grep": {
+      "pattern": "^\\s*cat\\s+(?P<file>\\S+)\\s*\\|\\s*grep\\s+(?P<pattern>.+)$",
+      "pwsh": "Select-String -Path '{{file}}' -Pattern '{{pattern}}' -CaseSensitive:$false | ForEach-Object { $_.Line }",
+      "cmd": "findstr /I /C:\"{{pattern}}\" \"{{file}}\"",
+      "bash": "cat '{{file}}' | grep '{{pattern}}'"
+    },
+    "grep file": {
+      "pattern": "^\\s*grep\\s+(?P<flags>\\S*)\\s+(?P<pattern>\\S+)\\s+(?P<file>\\S+)$",
+      "pwsh": "Select-String -Path '{{file}}' -Pattern '{{pattern}}' -CaseSensitive:$false | ForEach-Object { $_.Line }",
+      "cmd": "findstr /I /C:\"{{pattern}}\" \"{{file}}\"",
+      "bash": "grep {{flags}} '{{pattern}}' '{{file}}'"
+    },
+    "find files": {
+      "pattern": "^\\s*find\\s+(?P<root>\\S+)\\s+-name\\s+(?P<pattern>\\S+)$",
+      "pwsh": "Get-ChildItem -Path '{{root}}' -Recurse -Filter '{{pattern}}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName",
+      "cmd": "dir /S /B \"{{root}}\\{{pattern}}\"",
+      "bash": "find '{{root}}' -name '{{pattern}}'"
+    },
+    "export": {
+      "pattern": "^\\s*export\\s+(?P<name>\\w+)\\s*=\\s*(?P<value>\\S+)$",
+      "pwsh": "$env:{{name}} = '{{value}}'",
+      "cmd": "set {{name}}={{value}}",
+      "bash": "export {{name}}={{value}}"
+    },
+    "unset": {
+      "pattern": "^\\s*unset\\s+(?P<name>\\w+)$",
+      "pwsh": "Remove-Item -Path env:{{name}} -ErrorAction SilentlyContinue",
+      "cmd": "set {{name}}=",
+      "bash": "unset {{name}}"
+    },
+    "echo env": {
+      "pattern": "^\\s*echo\\s+\\$(?P<name>\\w+)$",
+      "pwsh": "Write-Output $env:{{name}}",
+      "cmd": "echo %{{name}}%",
+      "bash": "echo ${{name}}"
+    },
+    "echo literal": {
+      "pattern": "^\\s*echo\\s+(?P<text>.+)$",
+      "pwsh": "Write-Output \"{{text}}\"",
+      "cmd": "echo {{text}}",
+      "bash": "echo {{text}}"
+    },
+    "chmod +x": {
+      "pattern": "^\\s*chmod\\s+\\+x\\s+(?P<path>\\S+)$",
+      "pwsh": "# chmod has no equivalent on Windows; skipped for {{path}}",
+      "cmd": "REM chmod has no equivalent on Windows",
+      "bash": "chmod +x '{{path}}'"
+    },
+    "ls": {
+      "pattern": "^\\s*ls\\s+(?P<flags>-[\\w]+)\\s*(?P<path>\\S*)$",
+      "pwsh": "Get-ChildItem -Path '{{path}}' -Force",
+      "cmd": "dir {{path}}",
+      "bash": "ls {{flags}} '{{path}}'"
+    },
+    "ls simple": {
+      "pattern": "^\\s*ls\\s+(?P<path>[^-].*)$",
+      "pwsh": "Get-ChildItem -Path '{{path}}'",
+      "cmd": "dir {{path}}",
+      "bash": "ls '{{path}}'"
+    },
+    "ls bare": {
+      "pattern": "^\\s*ls\\s*$",
+      "pwsh": "Get-ChildItem",
+      "cmd": "dir",
+      "bash": "ls"
+    },
+    "pwd": {
+      "pattern": "^\\s*pwd\\s*$",
+      "pwsh": "Get-Location | Select-Object -ExpandProperty Path",
+      "cmd": "cd",
+      "bash": "pwd"
+    },
+    "which": {
+      "pattern": "^\\s*which\\s+(?P<cmd>\\S+)$",
+      "pwsh": "Get-Command {{cmd}} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source",
+      "cmd": "where {{cmd}}",
+      "bash": "which {{cmd}}"
+    },
+    "head": {
+      "pattern": "^\\s*head\\s+-n\\s+(?P<n>\\d+)\\s+(?P<file>\\S+)$",
+      "pwsh": "Get-Content -Path '{{file}}' -TotalCount {{n}}",
+      "cmd": "more +0 \"{{file}}\" | findstr /N . | findstr /B \"^[1-{{n}}]:\"",
+      "bash": "head -n {{n}} '{{file}}'"
+    },
+    "tail": {
+      "pattern": "^\\s*tail\\s+-n\\s+(?P<n>\\d+)\\s+(?P<file>\\S+)$",
+      "pwsh": "Get-Content -Path '{{file}}' -Tail {{n}}",
+      "cmd": "powershell -NoProfile -Command \"Get-Content -Path '{{file}}' -Tail {{n}}\"",
+      "bash": "tail -n {{n}} '{{file}}'"
+    },
+    "wc -l": {
+      "pattern": "^\\s*wc\\s+-l\\s+(?P<file>\\S+)$",
+      "pwsh": "(Get-Content -Path '{{file}}' | Measure-Object -Line).Lines",
+      "cmd": "find /C /V \"\" < \"{{file}}\"",
+      "bash": "wc -l '{{file}}'"
+    }
+  }
+}

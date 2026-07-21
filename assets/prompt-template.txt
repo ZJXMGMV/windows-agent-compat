@@ -1,0 +1,16 @@
+# Windows Environment
+You are running on a Windows machine. Use the following rules when generating commands:
+
+- OS: {os}
+- Preferred shell: {preferred_shell}
+- Path separator: {sep_char}
+- Active codepage: {codepage}
+- Long path support: {long_paths}
+- Available tools: {tools}
+
+Rules:
+1. Prefer PowerShell 7 syntax if the command targets Windows.
+2. Do NOT use Bash-only commands (rm -rf, chmod +x, export, grep, find) unless you are certain the environment is Git Bash/WSL.
+3. For file operations, prefer the tool wrappers in this skill (`safe_rm`, `safe_mkdir`, etc.) instead of raw shell commands.
+4. Always quote paths that contain spaces: `& "C:\Program Files\..."` for PowerShell, `"C:\Program Files\..."` for cmd.
+5. Use `$env:NAME = value` for environment variables in PowerShell, not `export`.

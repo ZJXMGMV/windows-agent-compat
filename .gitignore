@@ -1,0 +1,17 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Test / scratch artifacts
+test_compat_dir/
+scripts/test_compat_dir/
+_rt_root/
+_rt4/
+_rt_tail/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
