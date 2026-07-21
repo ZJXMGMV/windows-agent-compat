@@ -43,6 +43,14 @@ Use this skill when:
    ```powershell
    python scripts/cli.py wrap mkdir ./build
    ```
+7. Resolve any path notation to a canonical Windows path:
+   ```powershell
+   python scripts/cli.py resolve "/mnt/c/Users/me/foo"
+   ```
+8. Discover the best executable for a tool:
+   ```powershell
+   python scripts/cli.py discover git
+   ```
 
 ## Shell priority
 
@@ -94,6 +102,41 @@ python scripts/cli.py capabilities
 ```
 
 `detect` also returns the extended capability block (`python`, `node`, `git`, `cargo`, `docker`, `wsl`, `admin`, `network`, version strings).
+
+## Error recovery & retry loop (P2)
+
+`exec` runs a two-stage pipeline: **Stage 1** naive OS/timeout retries, **Stage 2** a deterministic Error Recovery Engine (no LLM). On failure the engine classifies the error, emits `fix_hint`s, and — where safe — retries once with an auto-recovery action:
+
+- `command_not_found` → `where.exe` re-resolves the tool to a full path and retries. If it cannot resolve, **no action is taken** (the failure surfaces honestly — never guesses).
+- `encoding_mojibake` → re-runs via `cmd`+GBK codepage.
+- `python_not_found` → retries with `python3`.
+- Other categories (`permission_denied`, `path_not_found`, `file_in_use`, `admin_required`, `timeout_or_hung`, `git_not_available`, `syntax_error`) emit suggestions only.
+
+Recovery is on by default; disable with `exec --no-recover`. Analyze a result without executing via `recover`:
+
+```powershell
+python scripts/cli.py exec "cat a.txt"           # auto-recovery on
+python scripts/cli.py exec "cat a.txt" --no-recover
+python scripts/cli.py recover '{"ok":false,"stderr":"...","original":"..."}'
+```
+
+## Path resolution (P2)
+
+`resolve` normalizes any path notation into a canonical absolute Windows path so the agent never reasons about separators/prefixes itself: `~`, `.`/`..`, `//server/share` and `\\server\share` UNC, `/mnt/c/...` (WSL mounts), `C:/x//y` (mixed/duplicate separators), and `\\?\` long-path passthrough.
+
+```powershell
+python scripts/cli.py resolve "~/Documents"        # -> C:\Users\<you>\Documents
+python scripts/cli.py resolve "/mnt/c/Users/me/x"  # -> C:\Users\me\x
+```
+
+## Tool discovery (P2)
+
+`discover` resolves a logical tool name to the best concrete executable, preferring real `.exe` over `.cmd`/`.bat`/`.ps1` wrappers (and excluding QClaw's `bash.cmd` false positive). Omit the tool name to probe them all.
+
+```powershell
+python scripts/cli.py discover git      # -> resolved path + candidates
+python scripts/cli.py discover          # -> all known tools
+```
 
 ## Common Windows errors
 

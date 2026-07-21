@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from cmd_adapter import CommandTranslator
+from recovery import RecoveryEngine
 
 
 class ExecRunner:
@@ -62,18 +63,42 @@ class ExecRunner:
         cwd: str | None = None,
         retries: int = 1,
         timeout: int = 30,
+        recover: bool = True,
     ) -> dict[str, Any]:
         selected_shell = self.select_shell(shell)
         translated = self.translator.translate(cmd, shell=selected_shell)
         translated_cmd = translated["translated"]
 
+        # Stage 1: initial execution (with naive OSError/timeout retries)
+        result = self._run_with_naive_retries(cmd, translated_cmd, selected_shell, cwd, retries, timeout,
+                                              fallback=translated["fallback"],
+                                              matched_rule=translated["matched_rule"])
+
+        # Stage 2: recovery loop (deterministic auto-fix, no LLM)
+        if recover and not result["ok"]:
+            result = self._try_recovery(result, cwd, timeout)
+
+        return result
+
+    def _run_with_naive_retries(
+        self,
+        original: str,
+        translated_cmd: str,
+        selected_shell: str,
+        cwd: str | None,
+        retries: int,
+        timeout: int,
+        fallback: bool,
+        matched_rule: Any = None,
+    ) -> dict[str, Any]:
         last_error: Exception | None = None
         for attempt in range(retries + 1):
             try:
                 result = self._execute(translated_cmd, selected_shell, cwd, timeout)
                 result["translated_cmd"] = translated_cmd
-                result["matched_rule"] = translated["matched_rule"]
-                result["fallback"] = translated["fallback"]
+                result["matched_rule"] = matched_rule
+                result["fallback"] = fallback
+                result["original"] = original
                 return result
             except (OSError, subprocess.TimeoutExpired) as exc:
                 last_error = exc
@@ -89,9 +114,38 @@ class ExecRunner:
             "exit_code": -1,
             "shell_used": selected_shell,
             "translated_cmd": translated_cmd,
-            "matched_rule": translated["matched_rule"],
-            "fallback": translated["fallback"],
+            "matched_rule": matched_rule,
+            "fallback": fallback,
+            "original": original,
         }
+
+    def _try_recovery(self, result: dict[str, Any], cwd: str | None, timeout: int) -> dict[str, Any]:
+        """Run the RecoveryEngine on a failed result; if it yields an auto-recovery
+        action, execute it once and merge recovery metadata into the result."""
+        engine = RecoveryEngine()
+        analysis = engine.analyze(result)
+        rec = analysis.get("auto_recovery")
+        if not rec:
+            result["recovery"] = analysis
+            return result
+        try:
+            recovered = self._execute(
+                rec["command"],
+                rec.get("shell") or result.get("shell_used", "pwsh"),
+                cwd or rec.get("cwd"),
+                rec.get("timeout", timeout),
+            )
+            recovered["original"] = result.get("original", "")
+            recovered["matched_rule"] = result.get("matched_rule")
+            recovered["fallback"] = result.get("fallback")
+            recovered["translated_cmd"] = rec["command"]
+            recovered["recovery"] = analysis
+            recovered["recovered_via"] = rec["name"]
+            return recovered
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            result["stderr"] = (result.get("stderr", "") or "") + f"\n[recovery:{rec['name']}] {exc}"
+            result["recovery"] = analysis
+            return result
 
     def _execute(self, cmd: str, shell: str, cwd: str | None, timeout: int) -> dict[str, Any]:
         base = self.SHELL_COMMANDS[shell]

@@ -15,6 +15,9 @@ from output_parser import OutputParser
 from prompt_gen import generate_prompt
 from capabilities import build_manifest
 from tool_wrap import OPERATIONS
+from path_resolver import PathResolver
+from tool_discovery import ToolDiscovery
+from recovery import RecoveryEngine
 
 
 def _configure_utf8_stdout() -> None:
@@ -73,7 +76,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
     shell = args.shell if args.shell else _default_shell()
     runner = ExecRunner(preferred_shell=shell)
     raw = _strip_trailing_flags(args.command)
-    result = runner.run(raw, shell=shell, cwd=args.cwd, retries=args.retries)
+    result = runner.run(raw, shell=shell, cwd=args.cwd, retries=args.retries, recover=not args.no_recover)
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
@@ -97,6 +100,34 @@ def cmd_capabilities(args: argparse.Namespace) -> int:
     env = EnvDetect().detect()
     manifest = build_manifest(env)
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_resolve(args: argparse.Namespace) -> int:
+    try:
+        print(PathResolver().resolve(args.path))
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_discover(args: argparse.Namespace) -> int:
+    td = ToolDiscovery()
+    if args.tool:
+        print(json.dumps(td.resolve(args.tool), indent=2, ensure_ascii=False))
+    else:
+        print(json.dumps(td.discover_all(), indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_recover(args: argparse.Namespace) -> int:
+    try:
+        result = json.loads(args.result_json)
+    except json.JSONDecodeError:
+        print("Error: result_json must be valid JSON", file=sys.stderr)
+        return 1
+    print(json.dumps(RecoveryEngine().analyze(result), indent=2, ensure_ascii=False))
     return 0
 
 
@@ -158,6 +189,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.add_argument("--shell", default=None, help="Shell to use. Default: auto-detect")
     p_exec.add_argument("--cwd", default=None, help="Working directory")
     p_exec.add_argument("--retries", type=int, default=1, help="Retry count on failure")
+    p_exec.add_argument("--no-recover", action="store_true", help="Disable auto error-recovery")
     p_exec.add_argument("--json", action="store_true", help="Output JSON")
     p_exec.set_defaults(func=cmd_exec)
 
@@ -172,6 +204,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_cap = sub.add_parser("capabilities", help="Emit capabilities manifest for agent planning")
     p_cap.set_defaults(func=cmd_capabilities)
+
+    p_resolve = sub.add_parser("resolve", help="Normalize a path to canonical Windows form")
+    p_resolve.add_argument("path", help="Path to resolve (supports ~, .., //UNC, /mnt/c, long paths)")
+    p_resolve.set_defaults(func=cmd_resolve)
+
+    p_discover = sub.add_parser("discover", help="Discover best executable for a tool")
+    p_discover.add_argument("tool", nargs="?", default=None, help="Tool name (git/python/node/...). Omit for all")
+    p_discover.set_defaults(func=cmd_discover)
+
+    p_recover = sub.add_parser("recover", help="Analyze an exec result JSON and suggest recovery")
+    p_recover.add_argument("result_json", help="ExecRunner result as JSON string")
+    p_recover.set_defaults(func=cmd_recover)
 
     return parser
 

@@ -5,16 +5,22 @@
 ## 一、整体架构
 
 ```
-cli.py            ← 唯一入口（argparse 分发 5 个子命令）
-  ├─ env_detect.py   环境探测
-  ├─ cmd_adapter.py  命令翻译引擎（读 config/adapters.json）
-  ├─ exec_runner.py  执行器（壳层选择 + 编码 + ANSI 处理）
-  ├─ output_parser.py 错误模式识别
-  ├─ prompt_gen.py   生成环境提示词
-  └─ tool_wrap.py    与 shell 无关的安全文件操作
+cli.py            ← 唯一入口（argparse 分发 9 个子命令）
+  ├─ env_detect.py     环境探测（含版本/能力检测）
+  ├─ cmd_adapter.py    命令翻译引擎（读 config/adapters.json）
+  ├─ exec_runner.py    执行器（壳层选择 + 编码 + ANSI + 恢复闭环）
+  ├─ recovery.py       错误恢复引擎（分类 + 确定性自恢复）
+  ├─ path_resolver.py  路径规范化（~/UNC//mnt/c/长路径）
+  ├─ tool_discovery.py 工具发现（多候选优选 exe > cmd/bat/ps1）
+  ├─ capabilities.py   能力清单（agent 规划用）
+  ├─ output_parser.py  错误模式识别
+  ├─ prompt_gen.py     生成环境提示词
+  └─ tool_wrap.py      与 shell 无关的安全文件操作
 config/adapters.json  ← 翻译规则库（正则 → 模板）
 assets/prompt-template.txt
 ```
+
+子命令：`detect` `translate` `exec` `wrap` `prompt` `capabilities` `resolve` `discover` `recover`
 
 机制本质：**把"Linux 习惯 → Windows 正确行为"的映射做成一个可数据驱动的规则库（`adapters.json`），配一套壳层抽象（自动选最优 shell + 编码/ANSI 处理）和一套 shell 无关的安全文件操作（`wrap`），对外暴露 5 个统一子命令，所有执行结果收敛成结构化 JSON 供 agent 稳定解析。**
 
@@ -197,6 +203,62 @@ utf-8 → gbk → cp1252 → utf-16
 ```
 
 **为什么 UTF-16 必须最后**：UTF-16 解码器"太宽容"，GBK 中文字节会被它成功"解码"成一堆乱码，所以只有前面三种都失败才试它（留给真正的 WSL UTF-16 输出）。
+
+## 五点五、错误恢复闭环（recovery.py + exec_runner）
+
+`exec` 现在是**两阶段管道**：
+
+```
+ExecRunner.run(cmd, recover=True)
+   │
+   ▼
+[Stage 1] _run_with_naive_retries()
+   │   OSError / TimeoutExpired → sleep(0.5) 重试 (retries 次)
+   │   拿到 result（含 ok/stderr/original/fallback/matched_rule）
+   ▼
+[Stage 2] if not ok and recover: _try_recovery(result)
+   │   RecoveryEngine.analyze(result)
+   │     ├─ 遍历 10 条 recovery rules（正则匹配 stderr）
+   │     │     → 生成 suggestions[{category,severity,fix_hint}]
+   │     └─ auto_recovery builder（可选）→ 自恢复动作 or None
+   │   有 auto_recovery → _execute() 重跑一次 → 合并 recovered_via
+   │   无 → 原样返回，附 result["recovery"]=analysis
+   ▼
+返回 result（失败时带 recovery 元数据）
+```
+
+**设计铁律：恢复动作必须确定性、窄口径，绝不 LLM 猜测。**
+- `command_not_found` → `_find_exe_and_retry`：仅当 `fallback=True` 时，用 `where.exe` 找真实路径重写命令；找不到就返回 None（如实失败）。
+- `encoding_mojibake` → `_try_gbk_redecode`：检测 Latin-1 区 mojibake 字符 → 切 `cmd`+GBK 重跑。
+- `python_not_found` → `_try_python_module_path`：`python` → `python3`。
+- 其余 6 类只给 `fix_hint` 建议，不自动执行。
+
+`command_not_found` 正则同时匹配 cmd.exe（"not recognized as an internal or external command"）与 PowerShell（"is not recognized as a name of a cmdlet"）两种措辞。
+
+## 五点六、路径解析（path_resolver.py）
+
+`PathResolver.resolve()` 把任意路径记法归一成规范绝对 Windows 路径，按序处理：
+
+```
+\\?\ 长路径      → 原样透传
+\\server\share  → UNC 反斜杠
+//server/share  → UNC 正斜杠 → 反斜杠
+/mnt/c/...       → C:\...（WSL 挂载）
+~ / ~/x          → 展开 HOME
+C:/x//y          → 折叠重复分隔符 + resolve()
+relative/dir     → 相对 cwd → resolve()
+```
+
+坑点：`re.sub(r"[/\\]+", repl, s)` 的 replacement 里反斜杠需正确转义（`"\\\\"` = 单个字面反斜杠），否则触发 `bad escape`。
+
+## 五点七、工具发现（tool_discovery.py）
+
+`ToolDiscovery.resolve(tool)` 把逻辑工具名映射到最佳可执行文件：
+
+- 候选表 `_TOOL_CANDIDATES`（如 `python → [python, python3, py]`）
+- 扩展名优先级 `_EXT_PRIORITY = [.exe, '', .cmd, .bat, .ps1]`——**真 exe 优先于脚本包装器**
+- 排除 QClaw 的 `bash.cmd`/`bash.bat` 假阳性（`_EXCLUDE_SUFFIXES`）
+- 每个候选取第一个命中的扩展名即停
 
 ## 六、wrap（安全包装，绕过 shell）
 
