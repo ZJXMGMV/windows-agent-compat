@@ -7,6 +7,14 @@ All notable changes to this skill are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Parser/path self-test harness** (`tests/test_parser_rules.py` +
+  `parser_fixtures.json`): covers the two pure deterministic string layers —
+  `path_resolver` notation mapping (cwd/home pinned for host-independence,
+  guards the historic f-string-backslash bug class) and `output_parser`
+  ok-gate + error classification. Wired into `run_all.py`. Meta-verified to
+  catch both a broken path mapping and a disabled fatal-keyword gate.
+  30 checks green; no new bugs surfaced (layers were already clean).
+
 - **Command-translation self-test harness** (`tests/test_adapter_rules.py` +
   `adapter_fixtures.json`): data-driven over all 23 translation rules. Asserts
   routing (**anti-shadowing net** — ordering-sensitive rules like `cat` vs

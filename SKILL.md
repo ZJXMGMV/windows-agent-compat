@@ -165,10 +165,16 @@ It runs two data-driven harnesses:
   command-translation rule, asserts routing (**anti-shadowing net**:
   ordering-sensitive rules like `cat` vs `cat | grep` keep matching the
   intended rule), exact per-shell output, and fallback behavior.
+- `tests/test_parser_rules.py` over `parser_fixtures.json` — the pure
+  deterministic string layers: `path_resolver` notation mapping (`~` / `..` /
+  `//UNC` / `/mnt/c` / mixed separators / `\\?\` passthrough, with cwd/home
+  pinned for host-independence) and `output_parser` ok-gate + error
+  classification.
 
-Both include a coverage gate that fails if any registered rule lacks a fixture,
-so a new rule cannot land without a test. **Add a fixture entry whenever you
-add a recovery rule or a translation rule.**
+The recovery and adapter harnesses include a coverage gate that fails if any
+registered rule lacks a fixture, so a new rule cannot land without a test.
+**Add a fixture entry whenever you add a recovery rule, a translation rule, a
+path notation, or an error-classification pattern.**
 
 ## Resources
 

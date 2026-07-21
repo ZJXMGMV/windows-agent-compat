@@ -1,0 +1,44 @@
+{
+  "_doc": "Self-test fixtures for the pure deterministic string layers: path_resolver.py and output_parser.py. path_resolver cases fix cwd/home so results are host-independent. output_parser cases assert ok (exit-code + fatal-keyword gate) and classified error categories. These guard the notation-mapping and error-gating logic against regressions when either is edited.",
+
+  "path_resolver": {
+    "cwd": "C:\\work",
+    "home": "C:\\Users\\tester",
+    "cases": [
+      {"in": "~", "out": "C:\\Users\\tester"},
+      {"in": "~/Documents", "out": "C:\\Users\\tester\\Documents"},
+      {"in": "~\\.config", "out": "C:\\Users\\tester\\.config"},
+      {"in": "C:\\x", "out": "C:\\x"},
+      {"in": "C:/x", "out": "C:\\x"},
+      {"in": "C:/x//y", "out": "C:\\x\\y"},
+      {"in": "//server/share/a", "out": "\\\\server\\share\\a"},
+      {"in": "\\\\server\\share\\a", "out": "\\\\server\\share\\a"},
+      {"in": "\\\\server\\share\\a/b\\c", "out": "\\\\server\\share\\a\\b\\c"},
+      {"in": "/mnt/c/Users/x", "out": "C:\\Users\\x"},
+      {"in": "/mnt/d/", "out": "D:\\"},
+      {"in": "foo/bar", "out": "C:\\work\\foo\\bar"},
+      {"in": "./x", "out": "C:\\work\\x"},
+      {"in": "../y", "out": "C:\\y"},
+      {"in": "\\\\?\\C:\\very\\long\\path", "out": "\\\\?\\C:\\very\\long\\path"},
+      {"in": "a//b", "out": "C:\\work\\a\\b"},
+      {"in": "relative/dir/file.txt", "out": "C:\\work\\relative\\dir\\file.txt"}
+    ],
+    "raises": ["", "   "]
+  },
+
+  "output_parser": {
+    "cases": [
+      {"stderr": "", "exit_code": 0, "ok": true, "errors": []},
+      {"stderr": "", "exit_code": 1, "ok": false, "errors": []},
+      {"stderr": "Access is denied.", "exit_code": 1, "ok": false, "errors": ["permission_denied"]},
+      {"stderr": "WARNING: something minor", "exit_code": 0, "ok": true, "errors": []},
+      {"stderr": "error: boom", "exit_code": 0, "ok": false, "errors": []},
+      {"stderr": "失败：无法完成", "exit_code": 0, "ok": false, "errors": []},
+      {"stderr": "The system cannot find the path specified.", "exit_code": 1, "ok": false, "errors": ["path_not_found"]},
+      {"stderr": "命令语法不正确。", "exit_code": 1, "ok": false, "errors": ["syntax_error"]},
+      {"stderr": "just informational text", "exit_code": 0, "ok": true, "errors": []},
+      {"stderr": "Exception calling method", "exit_code": 0, "ok": false, "errors": []},
+      {"stderr": "'foo' 不是内部或外部命令", "exit_code": 1, "ok": false, "errors": ["command_not_found"]}
+    ]
+  }
+}
